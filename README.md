@@ -8,8 +8,9 @@ A professional AI-powered tool to generate LinkedIn recommendations based on emp
 3. Run: `streamlit run app.py` on terminal 
 
 ## Features
-- 10-point rating system
+- 5-point rating system
 - AI-powered recommendation generation
 - Professional LinkedIn-ready output
 
 - Analytics dashboard
+
