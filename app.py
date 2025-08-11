@@ -3,6 +3,7 @@ import streamlit as st
 import time
 import os
 # Add at the top of the file after imports:
+# Add at the top of the file after imports:
 from typing import Dict, Optional
 # Page configuration
 st.set_page_config(
@@ -238,12 +239,10 @@ st.markdown("""
         border: 1px solid #e8f4f8 !important;
         border-radius: 8px !important;
     }
-
     /* Add consistent spacing between star ratings */
     .star-rating-container {
         margin-bottom: 1rem;
     }
-
     /* Container for form fields */
     .form-field-container {
         padding: 0.5rem 0;
@@ -281,7 +280,6 @@ def create_star_rating(label, key, help_text=None):
 
     return rating
 
-def generate_recommendation(ratings: Dict[str, int], employee_type: str, employee_name: str, relationship: str, time_worked: str, linkedin_url: str) -> Optional[str]:
     """Generate recommendation using OpenRouter API with input summary"""
     
     # Organize ratings into categories for analysis
@@ -324,7 +322,6 @@ def generate_recommendation(ratings: Dict[str, int], employee_type: str, employe
     You are an expert in writing professional LinkedIn recommendations.
     Your task is to generate a recommendation for {employee_name}.
 
-    First, silently analyze the provided performance data. Do not output this analysis.
     - Employee: {employee_name}
     - Role: {employee_type}
     - My Relationship to them: {relationship}
@@ -333,7 +330,6 @@ def generate_recommendation(ratings: Dict[str, int], employee_type: str, employe
     - Employee's LinkedIn Profile (for context, do not mention the URL in the output): {linkedin_url or 'Not provided'}
     - Key Strengths (rated 4 or 5): {', '.join(strengths) if strengths else 'None specified'}
 
-    Now, using that analysis, write a detailed and comprehensive LinkedIn recommendation of 200-250 words. The tone should be professional yet warm and authentic.
     
     Instructions for the recommendation:
     1. Start by clearly stating the working relationship ({relationship}) and the duration ({time_worked}).
@@ -345,14 +341,9 @@ def generate_recommendation(ratings: Dict[str, int], employee_type: str, employe
 
     try:
         client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=os.environ.get('OPENROUTER_API_KEY')
-        )
-
         # Generate the final recommendation in a single call
         final_response = client.chat.completions.create(
-            model="openai/gpt-3.5-turbo",
-            messages=[
+            api_key=os.environ.get('OPENROUTER_API_KEY')
                 {"role": "system", "content": "You are an expert in writing professional, warm, and authentic LinkedIn recommendations."},
                 {"role": "user", "content": recommendation_prompt}
             ],
@@ -500,16 +491,14 @@ def render_results_section(ratings: Dict[str, int]):
                 st.info("You can now manually copy the text above.")
         
         with col2:
-            if st.button("🔄 Generate New Version"):
-                st.session_state.recommendation_generated = False
-                st.rerun()
-        
-        # LinkedIn URL box
+            # This provides a clear way for users to copy the text.
+            if st.button("� Show Text for Copying"):
+                st.code(st.session_state.generated_text, language="text")
+                st.info("You can now manually copy the text above.")
         if st.session_state.saved_linkedin_url:
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #0077B5 0%, #005885 100%); color: white; padding: 8px; border-radius: 5px; margin: 1rem 0; text-align: center; font-family: 'Source Sans Pro', sans-serif; font-size: 1rem;">
-                Click on the Employee's LinkedIn Profile: <a href="{st.session_state.saved_linkedin_url}" target="_blank" style="color: #ffffff; text-decoration: none;">{st.session_state.saved_linkedin_url}</a>
-            </div>
+                st.session_state.recommendation_generated = False
             """, unsafe_allow_html=True)
         
         # Instructions
@@ -546,17 +535,25 @@ def render_results_section(ratings: Dict[str, int]):
 
 def main():
     """Main function to run the Streamlit application."""
-    # Check for API key. Prioritize environment variables (for Hugging Face),
-    # then fall back to Streamlit secrets (for local/Streamlit Cloud dev).
+    # Robustly check for API key from environment variables (Hugging Face secrets)
+    # or from a local secrets.toml file for local development.
     api_key = os.environ.get('OPENROUTER_API_KEY')
+    
     if not api_key:
-        if 'OPENROUTER_API_KEY' in st.secrets:
-            api_key = st.secrets['OPENROUTER_API_KEY']
-            os.environ['OPENROUTER_API_KEY'] = api_key # Set it for the rest of the app
-        else:
-            st.error('OpenRouter API key not found. Please set it in your Hugging Face Space secrets or local .streamlit/secrets.toml file.')
-            st.stop()
+        try:
+            # This check is for local development with a .streamlit/secrets.toml file.
+            if 'OPENROUTER_API_KEY' in st.secrets:
+                api_key = st.secrets['OPENROUTER_API_KEY']
+                os.environ['OPENROUTER_API_KEY'] = api_key
+        except FileNotFoundError:
+            # This is expected on Hugging Face if you only use repository secrets.
+            # We pass silently and rely on the final check below.
+            pass
 
+    # Final check to ensure the API key was found by either method.
+    if not api_key:
+        st.error("🔑 OpenRouter API key not found. Please add it to your Hugging Face Space secrets in the 'Settings' tab.")
+        st.stop()
     render_header()
 
     # Initialize session state
